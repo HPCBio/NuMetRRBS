@@ -25,7 +25,7 @@ VERSION: $Revision: 1.11 $
 BASE_POSITIONS = ["A", "C", "G", "T", "N"]
 NUM_BASES = len(BASE_POSITIONS)
 SAVE_UNDIGESTED = False
-SHOW_STATS = False  # When this is set to False, no report of the diversity will be printed.  This needs to be toggled in the code if you want to turn it on.
+SHOW_STATS = True  # When this is set to False, no report of the diversity will be printed.  This needs to be toggled in the code if you want to turn it on.
 USED_DGG = False    # When this is set to False, the new version using RGG will be used for the analysis.  This version of RGG is more specific than the previously used DGG.  This needs to be toggled in the code if you want to turn it on.
 
 # FUNCTION HELPERS
