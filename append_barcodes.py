@@ -56,23 +56,25 @@ def FastqIterator(fh):
 
         preLines,nextTitleLine=readTotitle(fh,'@')
 
-        seqTitle = seqTitle.split()
-        yield (seqTitle[0], seqTitle[1], ''.join(seqLines), ''.join(qualLines))
+        yield (seqTitle, ''.join(seqLines), ''.join(qualLines))
 
-def appendBarcode(fwdReadName, fwdDesc, fwdSeq, fwdQual,
-                  revReadName, revDesc, revSeq, revQual,
-                  barcode, outFwd, outRev):
-    outFwd.write("@%s%s %s\n%s\n+\n%s\n" % (fwdReadName, barcode, fwdDesc, fwdSeq, fwdQual))
+def appendBarcode(fwdTitle, fwdSeq, fwdQual,
+                  revTitle, revSeq, revQual,
+                  barcode, bcLength, outFwd, outRev):
+    bc = barcode[-bcLength:]
+    sys.stderr.write(bc)
+    outFwd.write("@%s:%s\n%s\n+\n%s\n" % (fwdTitle, bc, fwdSeq, fwdQual))
     if revSeq != None: # if this is a paired end read
-        outRev.write("@%s%s %s\n%s\n+\n%s\n" % (revReadName, barcode, revDesc, revSeq, revQual))
+        outRev.write("@%s:%s\n%s\n+\n%s\n" % (revTitle, bc, revSeq, revQual))
 
 # retrieve the user parameters
 fwdFilename = None
 revFilename = None
 barcodeFilename = None
+bcLength = 6
 
 try:
-    optlist, args = getopt(sys.argv[1:], "h1:2:b:")
+    optlist, args = getopt(sys.argv[1:], "h1:2:b:l:")
 except:
     print "Error retrieving options"
     print ""
@@ -90,6 +92,8 @@ for (opt, opt_arg) in optlist:
         revFilename = opt_arg
     elif opt == "-b":
         barcodeFilename = opt_arg
+    elif opt == "-l`":
+        bcLength = opt_arg
 
 if fwdFilename == None:
     print "\nYou must provide a fwd FASTQ filename or both fwd & rev filenames."
@@ -106,14 +110,16 @@ if barcodeFilename == None:
 recCount = 1
 
 fwdIt = FastqIterator(fwdFilename)
-(fwdReadName, fwdDesc, fwdSeq, fwdQual) = fwdIt.next()
+(fwdTitle, fwdSeq, fwdQual) = fwdIt.next()
+fwdReadName = fwdTitle.split()[0]
 
 bcIt = FastqIterator(barcodeFilename)
-(bcReadName, bcDesc, bcSeq, bcQual) = bcIt.next()
+(bcTitle, bcSeq, bcQual) = bcIt.next()
+bcReadName = bcTitle.split()[0]
 
 if revFilename:
     revIt = FastqIterator(revFilename)
-    (revReadName, revDesc, revSeq, revQual) = revIt.next()
+    (revTitle, revSeq, revQual) = revIt.next()
     revRoot = os.path.splitext(revFilename)[0]
     revReadName = revTitle.split()[0]
     if (revFilename.endswith(".gz")):
@@ -122,20 +128,26 @@ if revFilename:
         outRev = open(revRoot + "_trimmed.fq", "w")
 else:
     revIt = None
-    revReadName = revDesc = revSeq = revQual = None
+    revReadName = revTitle = revSeq = revQual = None
     outRev = None
 
 if fwdReadName != bcReadName:
     print "The fwd read name and barcode read name don't match"
-    print "fwd name: '%s'" % (fwdTitle.split()[0])
-    print "bc name: '%s'" % (bcTitle.split()[0])
+    print "fwd name: '%s'" % fwdReadName
+    print "bc name: '%s'" % bcReadName
     raise Exception("fwd and barcode names don't match.")
 
 if revReadName and fwdReadName != revReadName:
     print "The fwd read name and rev read name don't match"
-    print "fwd name: '%s'" % (fwdTitle.split()[0])
-    print "rev name: '%s'" % (revTitle.split()[0])
+    print "fwd name: '%s'" % fwdReadName
+    print "rev name: '%s'" % revReadName
     raise Exception("fwd and rev names don't match.  Not paired end sequence.")
+
+if len(bcSeq) < bcLength:
+    print "The barcode length doesn't match the actual barcode sequence"
+    print "Barcode sequence: '%s'" % (bcSeq.length)
+    print "Barcode length  : '%d'" % bcLength
+    raise Exception("The barcode length doesn't match the actual barcode sequence")
 
 fwdRoot = os.path.splitext(fwdFilename)[0]
 if (fwdFilename.endswith(".gz")):
@@ -145,14 +157,14 @@ else:
 
 while True:
     # trim one record and add to output
-    appendBarcode(fwdReadName, fwdDesc, fwdSeq, fwdQual, revReadName, revDesc,
-        revSeq, revQual, bcSeq, outFwd, outRev)
+    appendBarcode(fwdTitle, fwdSeq, fwdQual, revTitle,
+        revSeq, revQual, bcSeq, bcLength, outFwd, outRev)
 
     try:
-        (fwdReadName, fwdDesc, fwdSeq, fwdQual) = fwdIt.next()
-        (bcReadName, bcDesc, bcSeq, bcQual) = bcIt.next()
+        (fwdTitle, fwdSeq, fwdQual) = fwdIt.next()
+        (bcTitle, bcSeq, bcQual) = bcIt.next()
         if revFilename:
-            (revReadName, revDesc, revSeq, revQual) = revIt.next()
+            (revTitle, revSeq, revQual) = revIt.next()
     except StopIteration:
         break
 
